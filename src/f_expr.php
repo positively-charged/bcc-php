@@ -462,6 +462,7 @@ function f_read_call_args( $front, &$operand, $call, $func ) {
 }
 
 function f_read_literal( $front ) {
+   $pos = $front->tk_pos;
    $value = 0;
    switch ( $front->tk ) {
    case tk_lit_decimal:
@@ -480,6 +481,7 @@ function f_read_literal( $front ) {
       break;
    }
    return array(
+      'pos' => $pos,
       'value' => $value,
    );
 }

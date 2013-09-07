@@ -64,13 +64,6 @@ class params_t {
    }
 }
 
-class param_t {
-   public $pos;
-   public function __construct() {
-      $this->pos = null;
-   }
-}
-
 class scope_t {
    public $names;
    public $index;
@@ -90,10 +83,10 @@ class node_t {
    const call = 4;
    const subscript = 5;
    const expr = 6;
-   const variable = 7;
+   const type_var = 7;
    const script = 8;
    const script_jump = 9;
-   const func = 10;
+   const type_func = 10;
    const type_if = 11;
    const type_jump = 12;
    const type_while = 13;
@@ -101,6 +94,7 @@ class node_t {
    const type_for = 15;
    const type_switch = 16;
    const type_case = 17;
+   const type_param = 18;
    public $type;
 }
 
@@ -230,7 +224,7 @@ class var_t {
    public $initial;
    public function __construct() {
       $this->node = new node_t();
-      $this->node->type = node_t::variable;
+      $this->node->type = node_t::type_var;
       $this->index = 0;
    }
 }
@@ -254,9 +248,9 @@ class script_t {
    const flag_clientside = 2;
 
    public $node;
+   public $pos;
    public $number;
-   public $params_num;
-   public $params_pos;
+   public $num_params;
    public $type;
    public $flags;
    public $offset;
@@ -266,15 +260,13 @@ class script_t {
    public function __construct() {
       $this->node = new node_t();
       $this->node->type = node_t::script;
+      $this->pos = null;
       $this->number = 0;
-      $this->params_num = 0;
-      $this->params_pos = null;
+      $this->num_params = 0;
       $this->type = self::type_closed;
       $this->flags = 0;
       $this->offset = 0;
-      $body = new block_t();
-      $body->in_script = true;
-      $this->body = $body;
+      $this->body = null;
       $this->size = 0;
    }
 }
@@ -344,6 +336,16 @@ class return_t {
    }
 }
 
+class param_t {
+   public $node;
+   public $pos;
+   public function __construct() {
+      $this->node = new node_t();
+      $this->node->type = node_t::type_param;
+      $this->pos = null;
+   }
+}
+
 class func_t {
    const type_aspec = 0;
    const type_ext = 1;
@@ -352,6 +354,7 @@ class func_t {
    const type_user = 4;
    const type_internal = 5;
    public $node;
+   public $pos;
    public $type;
    // Whether returns a value.
    public $value;
@@ -360,7 +363,7 @@ class func_t {
    public $detail;
    public function __construct() {
       $this->node = new node_t();
-      $this->node->type = node_t::func;
+      $this->node->type = node_t::type_func;
       $this->type = self::type_user;
       $this->value = false;
       $this->detail = array();

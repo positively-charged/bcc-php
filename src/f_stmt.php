@@ -12,6 +12,8 @@ define( 'k_diag_notice', 0x10 );
 define( 'k_diag_warning', 0x20 );
 define( 'k_diag_err', 0x40 );
 
+define( 'MAX_MODULE_NAME_LENGTH', 8 );
+
 class front_t {
    public $options;
    public $file;
@@ -31,24 +33,87 @@ class front_t {
    public $tk_peeked;
    public $reading_script_number;
    public $dec_params;
-   public function __construct( $options ) {
-      $this->options = $options;
-      $this->file = null;
-      $this->files = array();
-      $this->files_unloaded = array();
-      $this->text = '';
-      $this->text_pos = 0;
-      $this->token = new token_t();
-      $this->types = array();
-      $this->module = new module_t();
-      $this->scope = null;
-      $this->scopes = array();
-      $this->block = null;
-      $this->bfunc_type = func_t::type_aspec;
-      $this->reading_script_number = false;
-      $this->dec_params = array();
-      $this->tk_peeked = null;
+   public $dec_for;
+   public $func;
+   public $case_stmt;
+}
+
+function f_create_tree( $options ) {
+   $front = new front_t();
+   $front->options = $options;
+   $front->file = null;
+   $front->files = array();
+   $front->files_unloaded = array();
+   $front->text = '';
+   $front->text_pos = 0;
+   $front->token = new token_t();
+   $front->types = array();
+   $front->module = new module_t();
+   $front->scope = null;
+   $front->scopes = array();
+   $front->block = null;
+   $front->bfunc_type = func_t::type_aspec;
+   $front->reading_script_number = false;
+   $front->dec_params = array();
+   $front->tk_peeked = null;
+   $front->importing = false;
+   $front->func = null;
+   $front->case_stmt = null;
+   // Top scope.
+   f_new_scope( $front );
+   if ( ! f_load_file( $front, $options[ 'source_file' ] ) ) {
+      printf( "error: failed to open file: %s\n", $options[ 'source_file' ] );
+      return false;
    }
+   f_read_tk( $front );
+
+   $list = array();
+   $type = new type_t( 'int' );
+   $list[ $type->name ] = $type;
+   $type = new type_t( 'str' );
+   $list[ $type->name ] = $type;
+   $type = new type_t( 'bool' );
+   $list[ $type->name ] = $type;
+   $front->types = $list;
+
+   try {
+      f_read_module( $front );
+      return array(
+         'module' => $front->module
+      );
+   }
+   catch ( Exception $e ) {
+      //printf( "Compilation error\n" );
+      return false;
+   }
+
+/*
+
+   print_r( f_read_expr( $front ) );
+   return false;
+
+   try {
+      while ( true ) {
+         f_read_tk( $front );
+         echo $front->token->text, " ", $front->token->type, "\n";
+         if ( $front->token->type === tk_end ) {
+            break;
+         }
+      }
+   }
+   catch ( Exception $e ) {}
+
+
+   while ( true ) {
+      if ( $front->ch != "\0" ) {
+         echo $front->text_line, ':', $front->text_column, ' ', $front->ch, "\n";
+         f_read_ch( $front );
+      }
+      else {
+         break;
+      }
+   }
+*/
 }
 
 function f_new_scope( $front ) {
@@ -86,78 +151,6 @@ function f_find_name( $front, $name ) {
       }
    }
    return null;
-}
-
-function f_create_tree( $options ) {
-   $front = new front_t( $options );
-   // Top scope.
-   f_new_scope( $front );
-   if ( ! f_load_file( $front, $options[ 'source_file' ] ) ) {
-      printf( "error: failed to open file: %s\n", $options[ 'source_file' ] );
-      return false;
-   }
-   f_read_token( $front );
-
-   $list = array();
-   $type = new type_t( 'int' );
-   $list[ $type->name ] = $type;
-   $type = new type_t( 'str' );
-   $list[ $type->name ] = $type;
-   $type = new type_t( 'bool' );
-   $list[ $type->name ] = $type;
-   $front->types = $list;
-
-   try {
-      f_read_module( $front );
-      return array(
-         'module' => $front->module
-      );
-   }
-   catch ( Exception $e ) {
-      //printf( "Compilation error\n" );
-      return false;
-   }
-
-/*
-
-   print_r( f_read_expr( $front ) );
-   return false;
-
-   try {
-      while ( true ) {
-         f_read_token( $front );
-         echo $front->token->text, " ", $front->token->type, "\n";
-         if ( $front->token->type === tk_end ) {
-            break;
-         }
-      }
-   }
-   catch ( Exception $e ) {}
-
-
-   while ( true ) {
-      if ( $front->ch != "\0" ) {
-         echo $front->text_line, ':', $front->text_column, ' ', $front->ch, "\n";
-         f_read_ch( $front );
-      }
-      else {
-         break;
-      }
-   }
-*/
-}
-
-function f_skip( $front, $expected ) {
-   f_test( $front, $expected );
-   f_read_token( $front );
-}
-
-function f_test( $front, $expected ) {
-   if ( $front->tk != $expected ) {
-      f_diag( $front, k_diag_err | k_diag_file | k_diag_line | k_diag_column,
-         $front->tk_pos, 'unexpected token: %s', $front->tk_text );
-      f_bail( $front );
-   }
 }
 
 function f_test_tk( $front, $expected ) {
@@ -206,134 +199,148 @@ function f_diag( $front, $flags ) {
 }
 
 function f_read_module( $front ) {
-   while ( true ) {
-      if ( $front->tk == tk_end ) {
-         f_unload_file( $front );
-         if ( $front->file === null ) {
-            break;
+   $got_header = false;
+   if ( $front->tk == tk_hash ) {
+      $pos = $front->tk_pos;
+      f_read_tk( $front );
+      if ( $front->tk == tk_id && $front->tk_text == 'library' ) {
+         f_read_tk( $front );
+         f_test_tk( $front, tk_lit_string );
+         if ( ! strlen( $front->tk_text ) ) {
+            f_diag( $front, k_diag_err | k_diag_file | k_diag_line |
+               k_diag_column, $front->tk_pos, 'module name is blank' );
          }
+         else if ( strlen( $front->tk_text ) > MAX_MODULE_NAME_LENGTH ) {
+            f_diag( $front, k_diag_err | k_diag_file | k_diag_line |
+               k_diag_column, $front->tk_pos,
+               'library name too long (maximum length: %d characters)',
+               MAX_MODULE_NAME_LENGTH );
+         }
+         else {
+            $front->module->name = $front->tk_text;
+         }
+         f_read_tk( $front );
+         $got_header = true;
       }
-      else if ( $front->tk == tk_hash ) {
-         f_read_dirc( $front );
+      else {
+         f_read_dirc( $front, $pos );
       }
-      else if ( $front->tk == tk_script ) {
+   }
+   // Header required for an imported module.
+   if ( $front->importing && ! $got_header ) {
+      f_diag( $front, k_diag_err | k_diag_file, $front->tk_pos,
+         'missing library name (#library "<name>") in imported module' );
+   }
+   while ( true ) {
+      if ( $front->tk == tk_script ) {
          f_read_script( $front );
       }
       else if ( f_is_dec( $front ) ) {
          f_read_dec( $front, k_dec_top );
       }
+      else if ( $front->tk == tk_hash ) {
+         $pos = $front->tk_pos;
+         f_read_tk( $front );
+         f_read_dirc( $front, $pos );
+      }
+      else if ( $front->tk == tk_special ) {
+         f_read_bfunc_list( $front );
+      }
+      else if ( $front->tk == tk_end ) {
+         f_unload_file( $front );
+         if ( $front->file === null ) {
+            break;
+         }
+      }
       else {
-         f_bail( $front );
+         f_diag( $front, k_diag_err | k_diag_file | k_diag_line |
+            k_diag_column, $front->tk_pos, 'unexpected token: %s',
+            $front->tk_text );
+         f_read_tk( $front );
       }
    }
 }
 
-function f_read_dirc( $front ) {
-   $pos = $front->tk_pos;
-   f_read_token( $front );
-   f_test( $front, tk_id );
-   $name = $front->tk_text;
-   $define = false;
-   $define_lib = false;
-   if ( $name == 'define' ) {
-      $define = true;
-   }
-   else if ( $name == 'libdefine' ) {
-      $define = true;
-      $define_lib = true;
-   }
-   if ( $define ) {
-      f_read_token( $front );
+function f_read_dirc( $front, $pos ) {
+   f_test_tk( $front, tk_id );
+   if ( $front->tk_text == 'define' || $front->tk_text == 'libdefine' ) {
+      f_read_tk( $front );
       $name = f_read_unique_name( $front );
       $expr = f_read_expr( $front );
-      $constant = new constant_t();
-      $constant->value = $expr[ 'value' ];
-      $constant->pos = $pos;
-      $front->scope->names[ $name ] = $constant;
-   }
-   else if ( $name == 'include' ) {
-      f_drop( $front );
-      f_test( $front, tk_lit_string );
-      f_include_file( $front, $front->token->text );
-      f_drop( $front );
-   }
-   else if ( $name == 'libinclude' ) {
-   }
-   else if ( $name == 'import' ) {
-   }
-   else if ( $name == 'library' ) {
-   }
-   else if ( $name == 'nocompact' ) {
-   }
-   else if ( $name == 'encryptstrings' ) {
-   }
-   else if ( $name == 'bfunc' ) {
-      f_read_token( $front );
-      f_test( $front, tk_lit_string );
-      switch ( $front->tk_text ) {
-      case 'aspec':
-         $front->bfunc_type = func_t::type_aspec;
-         break;
-      case 'ext':
-         $front->bfunc_type = func_t::type_ext;
-         break;
-      case 'ded':
-         $front->bfunc_type = func_t::type_ded;
-         break;
-      case 'format':
-         $front->bfunc_type = func_t::type_format;
-         break;
-      default:
-         f_diag( $front, array(
-            'type' => 'err',
-            'msg' => 'unknown builtin-function type',
-            'file' => $front->file->path,
-            'line' => $front->file->line,
-            'column' => $front->file->column ) );
-         f_bail( $front );
+      if ( $front->importing || $name[ 0 ] == 'l' ) {
+         $constant = new constant_t();
+         $constant->value = $expr->value;
+         $constant->pos = $pos;
+         $front->scope->names[ $name ] = $constant;
       }
-      f_read_token( $front );
+   }
+   else if ( $front->tk_text == 'include' ) {
+      f_read_tk( $front );
+      f_test_tk( $front, tk_lit_string );
+      f_include_file( $front );
+      f_read_tk( $front );
+   }
+   else if ( $front->tk_text == 'import' ) {
+      f_read_tk( $front );
+      f_test_tk( $front, tk_lit_string );
+      // Modules imported by a module that is itself imported are not needed.
+      if ( ! $front->importing ) {
+         f_include_file( $front );
+         f_read_module( $front );
+      }
+   }
+   else if ( $front->tk_text == 'library' ) {
+      f_read_tk( $front );
+      f_test_tk( $front, tk_lit_string );
+      f_read_tk( $front );
+      f_diag( $front, k_diag_err | k_diag_file | k_diag_line | k_diag_column,
+         $pos, 'library name between code' );
+      f_diag( $front, k_diag_notice | k_diag_file, $pos,
+         '#library must appear at the very top, before any other code' );
+   }
+   // Switch to the Big-E format.
+   else if ( $front->tk_text == 'nocompact' ) {
+      f_read_tk( $front );
+      if ( ! $front->importing ) {
+         $front->options[ 'format' ] = k_format_big_e;
+      }
+   }
+   else if ( $front->tk_text == 'encryptstrings' ) {
+      f_read_tk( $front );
+      if ( ! $front->importing ) {
+         $front->options[ 'encrypt_str' ] = true;
+      }
+   }
+   else if (
+      // NOTE: Not sure what these two are.
+      $front->tk_text == 'wadauthor' ||
+      $front->tk_text == 'nowadauthor' ) {
+      f_diag( $front, k_diag_err | k_diag_file | k_diag_line | k_diag_column,
+         $pos, 'directive not supported: %s', $front->tk_text );
+      f_read_tk( $front );
    }
    else {
-
+      f_diag( $front, k_diag_err | k_diag_file | k_diag_line | k_diag_column,
+         $pos, 'unknown directive: %s', $front->tk_text );
+      f_read_tk( $front );
    }
 }
 
-function f_include_file( $front, $path ) {
-   if ( $path != '' ) {
-      if ( ! f_load_file( $front, $path ) ) {
-         f_diag( $front, array( 'type' => 'err',
-            'msg' => 'failed to load file: %s', 'args' => array( $path ) ) );
-         f_bail( $front );
-      }
+function f_include_file( $front ) {
+   if ( $front->tk_text == '' ) {
+      f_diag( $front, k_diag_err | k_diag_file | k_diag_line | k_diag_column,
+         $front->tk_pos, 'path is empty' );
+      f_bail( $front );
    }
-   else {
-      f_diag( $front, array( 'type' => 'err', 'msg' => 'path is empty' ) );
+   else if ( ! f_load_file( $front, $front->tk_text ) ) {
+      f_diag( $front, k_diag_err | k_diag_file | k_diag_line | k_diag_column,
+         $front->tk_pos, 'failed to load file: %s', $front->tk_text );
       f_bail( $front );
    }
 }
 
-function f_read_block( $front, $block ) {
-   f_skip( $front, tk_brace_l );
-   $prev = $front->block;
-   $front->block = $block;
-   while ( true ) {
-      if ( f_is_dec( $front ) ) {
-         f_read_dec( $front, k_dec_local );
-      }
-      else if ( f_tk( $front ) == tk_brace_r ) {
-         f_drop( $front );
-         break;
-      }
-      else {
-         f_read_stmt( $front );
-      }
-   }
-   $front->block = $prev;
-}
-
 function f_read_stmt( $front ) {
-   switch ( f_tk( $front ) ) {
+   switch ( $front->tk ) {
    case tk_brace_l:
       f_new_scope( $front );
       f_read_block( $front );
@@ -378,141 +385,395 @@ function f_read_stmt( $front ) {
    }
 }
 
-function f_read_if( $front ) {
-   f_skip( $front, tk_if );
-   f_skip( $front, tk_paren_l );
-   f_read_expr( $front );
-   f_skip( $front, tk_paren_r );
-   f_read_stmt( $front );
-   if ( f_tk( $front ) == tk_else ) {
-      f_drop( $front );
-      f_read_stmt( $front );
+function f_read_block( $front ) {
+   f_test_tk( $front, tk_brace_l );
+   f_read_tk( $front );
+   while ( true ) {
+      if ( f_is_dec( $front ) ) {
+         f_read_dec( $front, k_dec_local );
+      }
+      else if ( $front->tk == tk_brace_r ) {
+         f_read_tk( $front );
+         break;
+      }
+      else {
+         f_read_stmt( $front );
+      }
    }
+}
+
+function f_read_if( $front ) {
+   f_test_tk( $front, tk_if );
+   f_read_tk( $front );
+   f_test_tk( $front, tk_paren_l );
+   f_read_tk( $front );
+   $expr = f_read_expr( $front );
+   f_test_tk( $front, tk_paren_r );
+   f_read_tk( $front );
+   $body = new block_t();
+   $body->prev = $front->block;
+   $front->block = $body;
+   f_read_stmt( $front, $body );
+   $else_body = null;
+   if ( $front->tk == tk_else ) {
+      f_read_tk( $front );
+      $body_else = new body_t();
+      f_read_stmt( $front );
+      $body_else->prev = $parent;
+      f_read_stmt( $front, $body );
+   }
+   $stmt = new if_t();
+   $stmt->expr = $expr;
+   $stmt->body = $body;
+   $stmt->else_body = $else_body;
+   array_push( $body->prev->stmts, $stmt );
+   $front->block = $body->prev;
 }
 
 function f_read_switch( $front ) {
-   f_skip( $front, tk_switch );
-   f_skip( $front, tk_paren_l );
-   f_read_expr( $front );
-   f_skip( $front, tk_paren_r );
+   f_test_tk( $front, tk_switch );
+   f_read_tk( $front );
+   f_test_tk( $front, tk_paren_l );
+   f_read_tk( $front );
+   $stmt = new switch_t();
+   $stmt->cond = f_read_expr( $front );
+   f_test_tk( $front, tk_paren_r );
+   f_read_tk( $front );
+   $prev = $front->case_stmt;
+   $front->case_stmt = $stmt;
+   $body = new block_t();
+   $body->in_switch = true;
+   $body->prev = $front->block;
+   $front->block = $body;
+   f_new_scope( $front );
    f_read_stmt( $front );
+   f_pop_scope( $front );
+   $front->block = $body->prev;
+   $front->case_stmt = $prev;
+   $stmt->body = $body;
+   array_push( $front->block->stmts, $stmt );
 }
 
 function f_read_case( $front ) {
-   if ( f_tk( $front ) == tk_case ) {
-      f_drop( $front );
-      f_read_expr( $front );
+   $pos = $front->tk_pos;
+   $block = $front->block;
+   while ( $block && ! $block->in_switch ) {
+      $block = $block->prev;
+   }
+   if ( ! $block ) {
+      f_diag( $front, k_diag_err | k_diag_file | k_diag_line | k_diag_column,
+         $pos, 'case outside switch statement' );
+   }
+   else if ( $block != $front->block ) {
+      f_diag( $front, k_diag_err | k_diag_file | k_diag_line | k_diag_column,
+         $pos, 'case inside a nested statement' );
+   }
+   $expr = null;
+   if ( $front->tk == tk_case ) {
+      f_read_tk( $front );
+      $expr = f_read_expr( $front );
    }
    else {
-      f_skip( $front, tk_default );
+      f_test_tk( $front, tk_default );
+      f_read_tk( $front );
    }
-   f_skip( $front, tk_colon );
+   f_test_tk( $front, tk_colon );
+   f_read_tk( $front );
+   if ( $expr ) {
+      if ( ! $expr->folded ) {
+         f_diag( $front, k_diag_err | k_diag_file | k_diag_line |
+            k_diag_column, $expr->pos, 'case value not constant' );
+         f_bail( $front );
+      }
+      // No duplicate cases allowed.
+      foreach ( $front->case_stmt->cases as $stmt ) {
+         if ( $stmt->expr && $stmt->expr->value == $expr->value ) {
+            f_diag( $front, k_diag_err | k_diag_file | k_diag_line |
+               k_diag_column, $pos, 'case with value %d duplicated',
+               $expr->value );
+            f_diag( $front, k_diag_file | k_diag_line | k_diag_column,
+               $stmt->pos, 'previous case found here' );
+         }
+      }
+   }
+   else {
+      // There should only be a single default case.
+      if ( $front->case_stmt->default_case ) {
+         f_diag( $front, k_diag_err | k_diag_file | k_diag_line |
+            k_diag_column, $pos, 'default case duplicated' );
+         f_diag( $front, k_diag_file | k_diag_line | k_diag_column,
+            $front->case_stmt->default_case->pos,
+            'previous default case found here' );
+         f_bail( $front );
+      }
+   }
+   $stmt = new case_t();
+   $stmt->expr = $expr;
+   $stmt->pos = $pos;
+   array_push( $front->block->stmts, $stmt );
+   array_push( $front->case_stmt->cases, $stmt );
+   if ( $expr ) {
+      $prev = null;
+      $curr = $front->case_stmt->case_head;
+      while ( $curr && $curr->expr->value < $expr->value ) {
+         $prev = $curr;
+         $curr = $curr->next_sorted;
+      }
+      if ( $prev ) {
+         $stmt->next_sorted = $prev->next_sorted;
+         $prev->next_sorted = $stmt;
+      }
+      else {
+         $stmt->next_sorted = $front->case_stmt->case_head_sorted;
+         $front->case_stmt->case_head_sorted = $stmt;
+      }
+   }
+   else {
+      $front->case_stmt->default_case = $stmt;
+   }
 }
 
 function f_read_while( $front ) {
-   $is_do = false;
-   if ( f_tk( $front ) == tk_while ) {
-      f_drop( $front );
-   }
-   else if ( f_tk( $front ) == tk_until ) {
-      f_drop( $front );
-   }
-   else {
-      f_skip( $front, tk_do );
-      $is_do = true;
-   }
-   if ( ! $is_do ) {
-      f_skip( $front, tk_paren_l );
-      f_read_expr( $front );
-      f_skip( $front, tk_paren_r );
-   }
-   f_read_stmt( $front );
-   if ( $is_do ) {
-      if ( f_tk( $front ) == tk_until ) {
-         f_drop( $front );
+   if ( $front->tk == tk_do ) {
+      f_read_tk( $front );
+      $body = new block_t();
+      $body->in_loop = true;
+      $body->prev = $front->block;
+      $front->block = $body;
+      f_new_scope( $front );
+      f_read_stmt( $front );
+      f_pop_scope( $front );
+      $front->block = $body->prev;
+      $type = while_t::type_do_while;
+      if ( $front->tk == tk_until ) {
+         $type = while_t::type_do_until;
+         f_read_tk( $front );
       }
       else {
-         f_skip( $front, tk_while );
+         f_test_tk( $front, tk_while );
+         f_read_tk( $front );
       }
-      f_skip( $front, tk_paren_l );
-      f_read_expr( $front );
-      f_skip( $front, tk_paren_r );
-      f_skip( $front, tk_semicolon );
+      f_test_tk( $front, tk_paren_l );
+      f_read_tk( $front );
+      $expr = f_read_expr( $front );
+      f_test_tk( $front, tk_paren_r );
+      f_read_tk( $front );
+      f_test_tk( $front, tk_semicolon );
+      f_read_tk( $front );
+      $stmt = new while_t();
+      $stmt->type = $type;
+      $stmt->expr = $expr;
+      $stmt->body = $body;
+      array_push( $body->prev->stmts, $stmt );
+   }
+   else {
+      $type = while_t::type_while;
+      if ( $front->tk == tk_until ) {
+         $type = while_t::type_until;
+         f_read_tk( $front );
+      }
+      else {
+         f_test_tk( $front, tk_while );
+         f_read_tk( $front );
+      }
+      f_test_tk( $front, tk_paren_l );
+      f_read_tk( $front );
+      $expr = f_read_expr( $front );
+      f_test_tk( $front, tk_paren_r );
+      f_read_tk( $front );
+      $body = new block_t();
+      $body->in_loop = true;
+      $body->prev = $front->block;
+      $front->block = $body;
+      f_new_scope( $front );
+      f_read_stmt( $front );
+      f_pop_scope( $front );
+      $front->block = $body->prev;
+      $stmt = new while_t();
+      $stmt->type = $type;
+      $stmt->expr = $expr;
+      $stmt->body = $body;
+      array_push( $body->prev->stmts, $stmt );
    }
 }
 
 function f_read_for( $front ) {
-   f_skip( $front, tk_for );
-   f_skip( $front, tk_paren_l );
+   f_test_tk( $front, tk_for );
+   f_read_tk( $front );
+   f_test_tk( $front, tk_paren_l );
+   f_read_tk( $front );
+   f_new_scope( $front );
    // Optional initialization.
-   if ( f_tk( $front ) != tk_semicolon ) {
+   $dec = null;
+   $init = null;
+   if ( $front->tk != tk_semicolon ) {
       if ( f_is_dec( $front ) ) {
+         $front->dec_for = array();
          f_read_dec( $front, k_dec_for );
+         $dec = $front->dec_for;
+         $front->dec_for = null;
       }
       else {
-         f_read_expr( $front );
-         f_skip( $front, tk_semicolon );
+         $init = array();
+         while ( true ) {
+            $expr = f_read_expr( $front );
+            array_push( $init, $expr );
+            if ( $front->tk == tk_comma ) {
+               f_read_tk( $front );
+            }
+            else {
+               f_test_tk( $front, tk_semicolon );
+               f_read_tk( $front );
+               break;
+            }
+         }
       }
    }
    else {
-      f_drop( $front );
+      f_read_tk( $front );
    }
    // Optional condition.
-   if ( f_tk( $front ) != tk_semicolon ) {
-      f_read_expr( $front );
-      f_skip( $front, tk_semicolon );
+   $cond = null;
+   if ( $front->tk != tk_semicolon ) {
+      $cond = f_read_expr( $front );
+      f_test_tk( $front, tk_semicolon );
+      f_read_tk( $front );
    }
    else {
-      f_drop( $front );
+      f_read_tk( $front );
    }
    // Optional post-expression.
-   if ( f_tk( $front ) != tk_paren_r ) {
-      f_read_expr( $front );
+   $post = null;
+   if ( $front->tk != tk_paren_r ) {
+      $post = f_read_expr( $front );
    }
-   f_skip( $front, tk_paren_r );
+   f_test_tk( $front, tk_paren_r );
+   f_read_tk( $front );
+   $body = new block_t();
+   $body->in_loop = true;
+   $body->prev = $front->block;
+   $front->block = $body;
    f_read_stmt( $front );
+   $front->block = $body->prev;
+   f_pop_scope( $front );
+   $stmt = new for_t();
+   $stmt->init = $init;
+   if ( $dec ) {
+      $stmt->init = $dec;
+   }
+   $stmt->cond = $cond;
+   $stmt->post = $post;
+   $stmt->body = $body;
+   array_push( $front->block->stmts, $stmt );
 }
 
 function f_read_jump( $front ) {
-   if ( f_tk( $front ) == tk_break ) {
-      f_drop( $front );
-      f_skip( $front, tk_semicolon );
+   if ( $front->tk == tk_break ) {
+      $pos = $front->tk_pos;
+      f_read_tk( $front );
+      f_test_tk( $front, tk_semicolon );
+      f_read_tk( $front );
+      $block = $front->block;
+      while ( true ) {
+         if ( $block ) {
+            if ( $block->in_loop || $block->in_switch ) {
+               $stmt = new jump_t();
+               array_push( $front->block->stmts, $stmt );
+               break;
+            }
+            else {
+               $block = $block->prev;
+            }
+         }
+         else {
+            f_diag( $front, k_diag_err | k_diag_file | k_diag_line |
+               k_diag_column, $pos, 'break outside loop or switch' );
+            break;
+         }
+      }
    }
    else {
-      f_skip( $front, tk_continue );
-      f_skip( $front, tk_semicolon );
+      f_test_tk( $front, tk_continue );
+      $pos = $front->tk_pos;
+      f_read_tk( $front );
+      f_test_tk( $front, tk_semicolon );
+      f_read_tk( $front );
+      $block = $front->block;
+      while ( true ) {
+         if ( $block ) {
+            if ( $block->in_loop ) {
+               $stmt = new jump_t();
+               $stmt->type = jump_t::type_continue;
+               array_push( $front->block->stmts, $stmt );
+               break;
+            }
+            else {
+               $block = $block->prev;
+            }
+         }
+         else {
+            f_diag( $front, k_diag_err | k_diag_file | k_diag_line |
+               k_diag_column, $pos, 'continue outside loop' );
+            break;
+         }
+      }
    }
 }
 
 function f_read_script_jump( $front ) {
    $type = script_jump_t::terminate;
-   switch ( f_tk( $front ) ) {
+   switch ( $front->tk ) {
    case tk_suspend:
       $type = script_jump_t::suspend;
-      f_drop( $front );
       break;
    case tk_restart:
       $type = script_jump_t::restart;
-      f_drop( $front );
       break;
    default:
-      f_skip( $front, tk_terminate );
+      f_test_tk( $front, tk_terminate );
       break;
    }
-   f_skip( $front, tk_semicolon );
-   $jump = new script_jump_t();
-   $jump->type = $type;
-   array_push( $front->block->stmts, $jump );
+   if ( $front->block->in_script ) {
+      $jump = new script_jump_t();
+      $jump->type = $type;
+      array_push( $front->block->stmts, $jump );
+   }
+   else {
+      f_diag( $front, k_diag_err | k_diag_file | k_diag_line | k_diag_column,
+         $front->tk_pos, 'script-jump statement outside script' );
+   }
+   f_read_tk( $front );
+   f_test_tk( $front, tk_semicolon );
+   f_read_tk( $front );
 }
 
 function f_read_return( $front ) {
-   f_drop( $front );
-   if ( f_tk( $front ) == tk_semicolon ) {
-      f_drop( $front );
+   $pos = $front->tk_pos;
+   f_test_tk( $front, tk_return );
+   f_read_tk( $front );
+   $expr = null;
+   if ( $front->tk != tk_semicolon ) {
+      $expr = f_read_expr( $front );
+   }
+   f_test_tk( $front, tk_semicolon );
+   f_read_tk( $front );
+   if ( ! $front->func ) {
+      f_diag( $front, k_diag_err | k_diag_file | k_diag_line | k_diag_column,
+         $pos, 'return statement outside a function' );
+   }
+   else if ( $front->func->value && ! $expr ) {
+      f_diag( $front, k_diag_err | k_diag_file | k_diag_line |
+         k_diag_column, $pos,
+         'return statement missing return value' );
+   }
+   else if ( $expr && ! $front->func->value ) {
+      f_diag( $front, k_diag_err | k_diag_file | k_diag_line |
+         k_diag_column, $expr->pos, 'returning value in void function' );
    }
    else {
-      f_read_expr( $front );
-      f_skip( $front, tk_semicolon );
+      $stmt = new return_t();
+      $stmt->expr = $expr;
+      array_push( $front->block->stmts, $stmt );
    }
 }
 
@@ -552,12 +813,13 @@ function f_read_palrange_rgb_field( $front ) {
 }
 
 function f_read_expr_stmt( $front ) {
-   if ( f_tk( $front ) == tk_semicolon ) {
-      f_drop( $front );
+   if ( $front->tk == tk_semicolon ) {
+      f_read_tk( $front );
    }
    else {
       $expr = f_read_expr( $front );
-      f_skip( $front, tk_semicolon );
-      array_push( $front->block->stmts, $expr[ 'node' ] );
+      f_test_tk( $front, tk_semicolon );
+      f_read_tk( $front );
+      array_push( $front->block->stmts, $expr );
    }
 }

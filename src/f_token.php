@@ -152,7 +152,7 @@ function f_unload_file( $front ) {
       array_push( $front->files_unloaded, $front->file );
       $front->file = array_pop( $front->files );
       $front->ch = $front->file->ch;
-      f_read_token( $front );
+      f_read_tk( $front );
    }
    else {
       $front->file = null;
@@ -188,7 +188,7 @@ function f_peek_ch( $front ) {
    }
 }
 
-function f_read_token( $front ) {
+function f_read_tk( $front ) {
    if ( $front->tk_peeked ) {
       list(
          $front->tk,
@@ -206,7 +206,7 @@ function f_read_token( $front ) {
    }
 }
 
-function f_peek_token( $front ) {
+function f_peek_tk( $front ) {
    if ( $front->tk_peeked === null ) {
       $front->tk_peeked = f_token_read( $front );
    }
@@ -328,11 +328,7 @@ function f_token_read( $front ) {
          $type = tk_end;
          goto state_finish;
       default:
-         f_diag( $front, array( 'type' => 'err',
-            'msg' => 'invalid character \'%s\'',
-            'args' => array( $front->ch ),
-            'file' => $front->file->path, 'line' => $front->file->line,
-            'column' => $front->file->column ) );
+         f_diag( $front, 0, 'invalid character \'%s\'', $front->ch );
          f_read_ch( $front );
          goto state_start;
       }

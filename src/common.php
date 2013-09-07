@@ -1,5 +1,9 @@
 <?php
 
+define( 'k_format_zero', 0 );
+define( 'k_format_big_e', 1 );
+define( 'k_format_little_e', 2 );
+
 define( 'k_storage_local', 0 );
 define( 'k_storage_map', 1 );
 define( 'k_storage_world', 2 );
@@ -60,6 +64,13 @@ class params_t {
    }
 }
 
+class param_t {
+   public $pos;
+   public function __construct() {
+      $this->pos = null;
+   }
+}
+
 class scope_t {
    public $names;
    public $index;
@@ -83,6 +94,13 @@ class node_t {
    const script = 8;
    const script_jump = 9;
    const func = 10;
+   const type_if = 11;
+   const type_jump = 12;
+   const type_while = 13;
+   const type_return = 14;
+   const type_for = 15;
+   const type_switch = 16;
+   const type_case = 17;
    public $type;
 }
 
@@ -204,7 +222,6 @@ class expr_t {
 class var_t {
    public $node;
    public $pos;
-   public $type;
    public $name;
    public $dim;
    public $storage;
@@ -238,23 +255,27 @@ class script_t {
 
    public $node;
    public $number;
-   public $params;
+   public $params_num;
+   public $params_pos;
    public $type;
    public $flags;
    public $offset;
    public $body;
+   public $size;
 
    public function __construct() {
       $this->node = new node_t();
       $this->node->type = node_t::script;
       $this->number = 0;
-      $this->params = array();
+      $this->params_num = 0;
+      $this->params_pos = null;
       $this->type = self::type_closed;
       $this->flags = 0;
       $this->offset = 0;
       $body = new block_t();
       $body->in_script = true;
       $this->body = $body;
+      $this->size = 0;
    }
 }
 
@@ -265,17 +286,38 @@ class block_t {
    public $in_script;
    public $in_func;
    public $in_loop;
+   public $in_switch;
    public $is_break;
    public $is_continue;
    public $is_return;
    public $stmts;
    public $flow;
+   public $prev;
    public function __construct() {
       $this->in_script = false;
       $this->in_func = false;
       $this->in_loop = false;
+      $this->in_switch = false;
+      $this->is_break = false;
+      $this->is_continue = false;
+      $this->is_return = false;
       $this->stmts = array();
       $this->flow = self::flow_going;
+      $this->prev = null;
+   }
+}
+
+class jump_t {
+   const type_break = 0;
+   const type_continue = 1;
+   public $node;
+   public $type;
+   public $offset;
+   public function __construct() {
+      $this->node = new node_t();
+      $this->node->type = node_t::type_jump;
+      $this->type = self::type_break;
+      $this->offset = 0;
    }
 }
 
@@ -292,6 +334,16 @@ class script_jump_t {
    }
 }
 
+class return_t {
+   public $node;
+   public $expr;
+   public function __construct() {
+      $this->node = new node_t();
+      $this->node->type = node_t::type_return;
+      $this->expr = null;
+   }
+}
+
 class func_t {
    const type_aspec = 0;
    const type_ext = 1;
@@ -301,20 +353,94 @@ class func_t {
    const type_internal = 5;
    public $node;
    public $type;
-   public $return_type;
-   public $params;
+   // Whether returns a value.
+   public $value;
    public $min_params;
    public $max_params;
-   public $opt_params;
    public $detail;
    public function __construct() {
       $this->node = new node_t();
       $this->node->type = node_t::func;
       $this->type = self::type_user;
+      $this->value = false;
+      $this->detail = array();
+   }
+}
+
+class if_t {
+   public $node;
+   public $expr;
+   public $body;
+   public $else_body;
+   public function __construct() {
+      $this->node = new node_t();
+      $this->node->type = node_t::type_if;
+      $this->expr = null;
+      $this->body = null;
+      $this->else_body = null;
+   }
+}
+
+class while_t {
+   const type_while = 0;
+   const type_until = 1;
+   const type_do_while = 2;
+   const type_do_until = 3;
+   public $node;
+   public $type;
+   public $expr;
+   public $body;
+   public function __construct() {
+      $this->node = new node_t();
+      $this->node->type = node_t::type_while;
+      $this->type = self::type_while;
+      $this->expr = null;
+      $this->body = null;
+   }
+}
+
+class for_t {
+   public $node;
+   public $init;
+   public $cond;
+   public $post;
+   public $body;
+   public function __construct() {
+      $this->node = new node_t();
+      $this->node->type = node_t::type_for;
+      $this->init = null;
+   }
+}
+
+class switch_t {
+   public $node;
+   public $cond;
+   public $cases;
+   public $cases_sorted;
+   public $default_case;
+   public $body;
+   public function __construct() {
+      $this->node = new node_t();
+      $this->node->type = node_t::type_switch;
+      $this->cond = null;
+      $this->cases = array();
+      $this->cases_sorted = array();
+      $this->body = null;
+   }
+}
+
+class case_t {
+   public $node;
+   public $expr;
+   public $pos;
+   public function __construct() {
+      $this->node = new node_t();
+      $this->node->type = node_t::type_case;
    }
 }
 
 class module_t {
+   public $name;
    public $vars;
    public $arrays;
    public $scripts;

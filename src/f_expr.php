@@ -43,7 +43,7 @@ function f_read_op( $front ) {
       $op = binary_t::op_mod;
    }
    if ( $op ) {
-      f_read_token( $front );
+      f_read_tk( $front );
       $rside = f_read_operand( $front );
       f_add_binary( $operand, $op, $rside );
       goto mul;
@@ -64,7 +64,7 @@ function f_read_op( $front ) {
    if ( $op ) {
       $add_op = $op;
       $add = $operand;
-      f_read_token( $front );
+      f_read_tk( $front );
       goto top;
    }
 
@@ -83,7 +83,7 @@ function f_read_op( $front ) {
    if ( $op ) {
       $shift_op = $op;
       $shift = $operand;
-      f_read_token( $front );
+      f_read_tk( $front );
       goto top;
    }
 
@@ -108,7 +108,7 @@ function f_read_op( $front ) {
    if ( $op ) {
       $lt_op = $op;
       $lt = $operand;
-      f_read_token( $front );
+      f_read_tk( $front );
       goto top;
    }
 
@@ -127,7 +127,7 @@ function f_read_op( $front ) {
    if ( $op ) {
       $eq_op = $op;
       $eq = $operand;
-      f_read_token( $front );
+      f_read_tk( $front );
       goto top;
    }
 
@@ -138,7 +138,7 @@ function f_read_op( $front ) {
    }
    if ( $front->tk == tk_bit_and ) {
       $bit_and = $operand;
-      f_read_token( $front );
+      f_read_tk( $front );
       goto top;
    }
 
@@ -149,7 +149,7 @@ function f_read_op( $front ) {
    }
    if ( $front->tk == tk_bit_xor ) {
       $bit_xor = $operand;
-      f_read_token( $front );
+      f_read_tk( $front );
       goto top;
    }
 
@@ -160,7 +160,7 @@ function f_read_op( $front ) {
    }
    if ( $front->tk == tk_bit_or ) {
       $bit_or = $operand;
-      f_read_token( $front );
+      f_read_tk( $front );
       goto top;
    }
 
@@ -171,7 +171,7 @@ function f_read_op( $front ) {
    }
    if ( $front->tk == tk_log_and ) {
       $log_and = $operand;
-      f_read_token( $front );
+      f_read_tk( $front );
       goto top;
    }
 
@@ -182,7 +182,7 @@ function f_read_op( $front ) {
    }
    if ( $front->tk == tk_log_or ) {
       $log_or = $operand;
-      f_read_token( $front );
+      f_read_tk( $front );
       goto top;
    }
 
@@ -221,7 +221,7 @@ function f_read_op( $front ) {
       $op = binary_t::op_assign_bit_or;
    }
    if ( $op ) {
-      f_read_token( $front );
+      f_read_tk( $front );
       $rside = f_read_op( $front );
       f_add_binary( $operand, $op, $rside );
    }
@@ -282,7 +282,7 @@ function f_read_operand( $front ) {
       break;
    }
    if ( $op ) {
-      f_read_token( $front );
+      f_read_tk( $front );
       $operand = f_read_operand( $front );
       f_add_unary( $operand, $op );
    }
@@ -293,9 +293,9 @@ function f_read_operand( $front ) {
          'value' => 0
       );
       f_read_primary( $front, $operand );
-      //if ( ! $front->reading_script_number ) {
+      if ( ! $front->reading_script_number ) {
          f_read_postfix( $front, $operand );
-      //}
+      }
    }
    return $operand;
 }
@@ -313,10 +313,10 @@ function f_read_primary( $front, &$operand ) {
       $node = f_find_name( $front, $front->tk_text );
       if ( $node ) {
          $operand[ 'node' ] = $node;
-         f_read_token( $front );
+         f_read_tk( $front );
       }
       // User functions can be used before declared.
-      else if ( f_peek_token( $front ) == tk_paren_l ) {
+      else if ( f_peek_tk( $front ) == tk_paren_l ) {
          $func = new func_t();
          $func->type = func_t::type_user;
          $func->return_type = null;
@@ -326,7 +326,7 @@ function f_read_primary( $front, &$operand ) {
          $func->detail = array( 'def' => false );
          $front->scopes[ 0 ]->names[ $front->tk_text ] = $func;
          $operand[ 'node' ] = $func;
-         f_read_token( $front ); 
+         f_read_tk( $front ); 
       }
       else {
          f_diag( $front, k_diag_err | k_diag_file | k_diag_line |
@@ -336,7 +336,7 @@ function f_read_primary( $front, &$operand ) {
       }
    }
    else if ( $front->tk == tk_paren_l ) {
-      f_read_token( $front );
+      f_read_tk( $front );
       $sub = f_read_op( $front );
       $operand[ 'node' ] = $sub[ 'node' ];
       f_skip( $front, tk_paren_r );
@@ -356,7 +356,7 @@ function f_read_postfix( $front, &$operand ) {
    while ( true ) {
       switch ( $front->tk ) {
       case tk_bracket_l:
-         f_read_token( $front );
+         f_read_tk( $front );
          $expr = f_read_expr( $front );
          f_skip( $front, tk_bracket_r );
          $sub = new subscript_t();
@@ -369,11 +369,11 @@ function f_read_postfix( $front, &$operand ) {
          break;
       case tk_inc:
          f_add_unary( $operand, unary_t::op_post_inc );
-         f_read_token( $front );
+         f_read_tk( $front );
          break;
       case tk_dec:
          f_add_unary( $operand, unary_t::op_post_dec );
-         f_read_token( $front );
+         f_read_tk( $front );
          break;
       default:
          return;
@@ -383,7 +383,8 @@ function f_read_postfix( $front, &$operand ) {
 
 function f_read_call( $front, &$operand ) {
    $pos = $front->tk_pos;
-   f_skip( $front, tk_paren_l );
+   f_test_tk( $front, tk_paren_l );
+   f_read_tk( $front );
    $func = $operand[ 'node' ];
    if ( $func->node->type != node_t::func ) {
       f_diag( $front, k_diag_err | k_diag_file | k_diag_line | k_diag_column,
@@ -397,11 +398,11 @@ function f_read_call( $front, &$operand ) {
    if ( $front->tk != tk_paren_r ) {
       f_read_call_args( $front, $operand, $call, $func );
    }
-   f_test( $front, tk_paren_r );
-   f_read_token( $front );
+   f_test_tk( $front, tk_paren_r );
+   f_read_tk( $front );
    $operand[ 'node' ] = $call;
-echo print_r( $operand ), "\n";
-exit( 0 );
+//print_r( $operand ), "\n";
+//exit( 0 );
 }
 
 function f_read_call_args( $front, &$operand, $call, $func ) {
@@ -412,10 +413,10 @@ function f_read_call_args( $front, &$operand, $call, $func ) {
          f_bail( $front );
       }
       while ( true ) {
-         f_test_tk( $front, tk_id );
+         f_test_tk_tk( $front, tk_id );
          $cast = array();
          f_read_tk( $front );
-         f_test_tk( $front, tk_colon );
+         f_test_tk_tk( $front, tk_colon );
          f_read_tk( $front );
          $expr = f_read_expr( $front );
          $item = new format_item_t();
@@ -452,7 +453,7 @@ function f_read_call_args( $front, &$operand, $call, $func ) {
          $func->min_params += 1;
       }
       if ( $front->tk == tk_comma ) {
-         f_read_token( $front );
+         f_read_tk( $front );
       }
       else {
          break;
@@ -465,15 +466,15 @@ function f_read_literal( $front ) {
    switch ( $front->tk ) {
    case tk_lit_decimal:
       $value = ( int ) $front->tk_text;
-      f_read_token( $front );
+      f_read_tk( $front );
       break;
    case tk_lit_string:
-      f_read_token( $front );
+      f_read_tk( $front );
       break;
    case tk_lit_hex:
    case tk_lit_octal:
    case tk_lit_fixed:
-      f_read_token( $front );
+      f_read_tk( $front );
       break;
    default:
       break;

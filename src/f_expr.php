@@ -290,7 +290,8 @@ function f_read_operand( $front ) {
       $operand = array(
          'node' => null,
          'folded' => false,
-         'value' => 0
+         'value' => 0,
+         'is_value' => false,
       );
       f_read_primary( $front, $operand );
       if ( ! $front->reading_script_number ) {

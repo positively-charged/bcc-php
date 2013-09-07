@@ -61,6 +61,7 @@ function f_create_tree( $options ) {
    $front->case_stmt = null;
    // Top scope.
    f_new_scope( $front );
+   f_load_ded_format_funcs( $front );
    if ( ! f_load_file( $front, $options[ 'source_file' ] ) ) {
       printf( "error: failed to open file: %s\n", $options[ 'source_file' ] );
       return false;

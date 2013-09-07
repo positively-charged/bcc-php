@@ -685,3 +685,186 @@ function f_read_bfunc_list( $front ) {
       }
    }
 }
+
+function f_load_ded_format_funcs( $front ) {
+   $ded = array(
+      // Format: name / returns-value / parameter-count / parameter-minimum /
+      // opcode / is-latent.
+      array( 'delay', false, 1, 1, pc_delay, true ),
+      array( 'random', true, 2, 2, pc_random, false ),
+      array( 'thingcount', true, 2, 2, pc_thing_count, false ),
+      array( 'tagwait', false, 1, 1, pc_tag_wait, true ),
+      array( 'polywait', false, 1, 1, pc_poly_wait, true ),
+      array( 'changefloor', false, 2, 2, pc_change_floor, false ),
+      array( 'changeceiling', false, 2, 2, pc_change_ceiling, false ),
+      array( 'lineside', true, 0, 0, pc_line_side, false ),
+      array( 'scriptwait', false, 1, 1, pc_script_wait, true ),
+      array( 'clearlinespecial', false, 0, 0, pc_clear_line_special, false ),
+      array( 'playercount', true, 0, 0, pc_player_count, false ),
+      array( 'gametype', true, 0, 0, pc_game_type, false ),
+      array( 'gameskill', true, 0, 0, pc_game_skill, false ),
+      array( 'timer', true, 0, 0, pc_timer, false ),
+      array( 'sectorsound', false, 2, 2, pc_sector_sound, false ),
+      array( 'ambientsound', false, 2, 2, pc_ambient_sound, false ),
+      array( 'soundsequence', false, 1, 1, pc_sound_sequence, false ),
+      array( 'setlinetexture', false, 4, 4, pc_set_line_texture, false ),
+      array( 'setlineblocking', false, 2, 2, pc_set_line_blocking, false ),
+      array( 'setlinespecial', false, 7, 2, pc_set_line_special, false ),
+      array( 'thingsound', false, 3, 3, pc_thing_sound, false ),
+      array( 'activatorsound', false, 2, 2, pc_activator_sound, false ),
+      array( 'localambientsound', false, 2, 2, pc_local_ambient_sound,
+         false ),
+      array( 'setlinemonsterblocking', false, 2, 2,
+         pc_set_line_monster_blocking, false ),
+      array( 'ismultiplayer', true, 0, 0, pc_is_multiplayer, false ),
+      array( 'playerteam', true, 0, 0, pc_player_team, false ),
+      array( 'playerhealth', true, 0, 0, pc_player_health, false ),
+      array( 'playerarmorpoints', true, 0, 0, pc_player_armor_points, false ),
+      array( 'playerfrags', true, 0, 0, pc_player_frags, false ),
+      array( 'bluecount', true, 0, 0, pc_blue_team_count, false ),
+      array( 'blueteamcount', true, 0, 0, pc_blue_team_count, false ),
+      array( 'redcount', true, 0, 0, pc_red_team_count, false ),
+      array( 'redteamcount', true, 0, 0, pc_red_team_count, false ),
+      array( 'bluescore', true, 0, 0, pc_blue_team_score, false ),
+      array( 'blueteamscore', true, 0, 0, pc_blue_team_score, false ),
+      array( 'redscore', true, 0, 0, pc_red_team_score, false ),
+      array( 'redteamscore', true, 0, 0, pc_red_team_score, false ),
+      array( 'isoneflagctf', true, 0, 0, pc_is_one_flag_ctf, false ),
+      array( 'getinvasionwave', true, 0, 0, pc_get_invasion_wave, false ),
+      array( 'getinvasionstate', true, 0, 0, pc_get_invasion_state, false ),
+      array( 'music_change', false, 2, 2, pc_music_change, false ),
+      array( 'consolecommand', false, 3, 1, pc_console_command, false ),
+      array( 'singleplayer', true, 0, 0, pc_single_player, false ),
+      array( 'fixedmul', true, 2, 2, pc_fixed_mul, false ),
+      array( 'fixeddiv', true, 2, 2, pc_fixed_div, false ),
+      array( 'setgravity', false, 1, 1, pc_set_gravity, false ),
+      array( 'setaircontrol', false, 1, 1, pc_set_air_control, false ),
+      array( 'clearinventory', false, 0, 0, pc_clear_inventory, false ),
+      array( 'giveinventory', false, 2, 2, pc_give_inventory, false ),
+      array( 'takeinventory', false, 2, 2, pc_take_inventory, false ),
+      array( 'checkinventory', true, 1, 1, pc_check_inventory, false ),
+      array( 'spawn', true, 6, 4, pc_spawn, false ),
+      array( 'spawnspot', true, 4, 2, pc_spawn_spot, false ),
+      array( 'setmusic', false, 3, 1, pc_set_music, false ),
+      array( 'localsetmusic', false, 3, 1, pc_local_set_music, false ),
+      array( 'setfont', false, 1, 1, pc_set_font, false ),
+      array( 'setthingspecial', false, 7, 2, pc_set_thing_special, false ),
+      array( 'fadeto', false, 5, 5, pc_fade_to, false ),
+      array( 'faderange', false, 9, 9, pc_fade_range, false ),
+      array( 'cancelfade', false, 0, 0, pc_cancel_fade, false ),
+      array( 'playmovie', true, 1, 1, pc_play_movie, false ),
+      array( 'setfloortrigger', false, 8, 3, pc_set_floor_trigger, false ),
+      array( 'setceilingtrigger', false, 8, 3, pc_set_ceiling_trigger, false ),
+      array( 'getactorx', true, 1, 1, pc_get_actor_x, false ),
+      array( 'getactory', true, 1, 1, pc_get_actor_y, false ),
+      array( 'getactorz', true, 1, 1, pc_get_actor_z, false ),
+      array( 'sin', true, 1, 1, pc_sin, false ),
+      array( 'cos', true, 1, 1, pc_cos, false ),
+      array( 'vectorangle', true, 2, 2, pc_vector_angle, false ),
+      array( 'checkweapon', true, 1, 1, pc_check_weapon, false ),
+      array( 'setweapon', true, 1, 1, pc_set_weapon, false ),
+      array( 'setmarineweapon', false, 2, 2, pc_set_marine_weapon, false ),
+      array( 'setactorproperty', false, 3, 3, pc_set_actor_property, false ),
+      array( 'getactorproperty', true, 2, 2, pc_get_actor_property, false ),
+      array( 'playernumber', true, 0, 0, pc_player_number, false ),
+      array( 'activatortid', true, 0, 0, pc_activator_tid, false ),
+      array( 'setmarinesprite', false, 2, 2, pc_set_marine_sprite, false ),
+      array( 'getscreenwidth', true, 0, 0, pc_get_screen_width, false ),
+      array( 'getscreenheight', true, 0, 0, pc_get_screen_height, false ),
+      array( 'thing_projectile2', false, 7, 7, pc_thing_projectile2, false ),
+      array( 'strlen', true, 1, 1, pc_strlen, false ),
+      array( 'sethudsize', false, 3, 3, pc_set_hud_size, false ),
+      array( 'getcvar', true, 1, 1, pc_get_cvar, false ),
+      array( 'setresultvalue', false, 1, 1, pc_set_result_value, false ),
+      array( 'getlinerowoffset', true, 0, 0, pc_get_line_row_offset, false ),
+      array( 'getactorfloorz', true, 1, 1, pc_get_actor_floor_z, false ),
+      array( 'getactorangle', true, 1, 1, pc_get_actor_angle, false ),
+      array( 'getsectorfloorz', true, 3, 3, pc_get_sector_floor_z, false ),
+      array( 'getsectorceilingz', true, 3, 3, pc_get_sector_ceiling_z, false ),
+      array( 'getsigilpieces', true, 0, 0, pc_get_sigil_pieces, false ),
+      array( 'getlevelinfo', true, 1, 1, pc_get_level_info, false ),
+      array( 'changesky', false, 2, 2, pc_change_sky, false ),
+      array( 'playeringame', true, 1, 1, pc_player_in_game, false ),
+      array( 'playerisbot', true, 1, 1, pc_player_is_bot, false ),
+      array( 'setcameratotexture', false, 3, 3, pc_set_camera_to_texture,
+         false ),
+      array( 'getammocapacity', true, 1, 1, pc_get_ammo_capacity, false ),
+      array( 'setammocapacity', false, 2, 2, pc_set_ammo_capacity, false ),
+      array( 'setactorangle', false, 2, 2, pc_set_actor_angle, false ),
+      array( 'spawnprojectile', false, 7, 7, pc_spawn_projectile, false ),
+      array( 'getsectorlightlevel', true, 1, 1, pc_get_sector_light_level,
+         false ),
+      array( 'getactorceilingz', true, 1, 1, pc_get_actor_ceiling_z, false ),
+      array( 'clearactorinventory', false, 1, 1, pc_clear_actor_inventory,
+         false ),
+      array( 'giveactorinventory', false, 3, 3, pc_give_actor_inventory,
+         false ),
+      array( 'takeactorinventory', false, 3, 3, pc_take_actor_inventory,
+         false ),
+      array( 'checkactorinventory', true, 2, 2, pc_check_actor_inventory,
+         false ),
+      array( 'thingcountname', true, 2, 2, pc_thing_count_name, false ),
+      array( 'spawnspotfacing', true, 3, 2, pc_spawn_spot_facing, false ),
+      array( 'playerclass', true, 1, 1, pc_player_class, false ),
+      array( 'getplayerinfo', true, 2, 2, pc_get_player_info, false ),
+      array( 'changelevel', false, 4, 3, pc_change_level, false ),
+      array( 'sectordamage', false, 5, 5, pc_sector_damage, false ),
+      array( 'replacetextures', false, 3, 2, pc_replace_textures, false ),
+      array( 'getactorpitch', true, 1, 1, pc_get_actor_pitch, false ),
+      array( 'setactorpitch', false, 2, 2, pc_set_actor_pitch, false ),
+      array( 'setactorstate', true, 3, 2, pc_set_actor_state, false ),
+      array( 'thing_damage2', true, 3, 3, pc_thing_damage2, false ),
+      array( 'useinventory', true, 1, 1, pc_use_inventory, false ),
+      array( 'useactorinventory', true, 2, 2, pc_use_actor_inventory, false ),
+      array( 'checkactorceilingtexture', true, 2, 2,
+         pc_check_actor_ceiling_texture, false ),
+      array( 'checkactorfloortexture', true, 2, 2,
+         pc_check_actor_floor_texture, false ),
+      array( 'getactorlightlevel', true, 1, 1, pc_get_actor_light_level,
+         false ),
+      array( 'setmugshotstate', false, 1, 1, pc_set_mugshot_state, false ),
+      array( 'thingcountsector', true, 3, 3, pc_thing_count_sector, false ),
+      array( 'thingcountnamesector', true, 3, 3, pc_thing_count_name_sector,
+         false ),
+      array( 'checkplayercamera', true, 1, 1, pc_check_player_camera, false ),
+      array( 'morphactor', true, 7, 7, pc_morph_actor, false ),
+      array( 'unmorphactor', true, 2, 1, pc_unmorph_actor, false ),
+      array( 'getplayerinput', true, 2, 2, pc_get_player_input, false ),
+      array( 'classifyactor', true, 1, 1, pc_classify_actor, false )
+   );
+   foreach ( $ded as $template ) {
+      list( $name, $value, $max_params, $min_params, $opcode, $latent ) =
+         $template;
+      $func = new func_t();
+      $func->type = func_t::type_ded;
+      $func->value = $value;
+      $func->min_params = $min_params;
+      $func->max_params = $max_params;
+      $func->detail = array(
+         'opcode' => $opcode,
+         'latent' => $latent );
+      $front->scope->names[ $name ] = $func;
+   }
+   $format = array(
+      // Format: name / returns-value / parameter-count / parameter-minimum /
+      // terminating-opcode.
+      // Note: The format items together count as a single parameter.
+      array( 'print', false, 1, 1, pc_end_print ),
+      array( 'printbold', false, 1, 1, pc_end_print_bold ),
+      array( 'hudmessage', false, 9, 7, pc_end_hud_message ),
+      array( 'hudmessagebold', false, 9, 7, pc_end_hud_message_bold ),
+      array( 'log', false, 1, 1, pc_end_log ),
+      array( 'strparam', true, 1, 1, pc_save_string )
+   );
+   foreach ( $format as $template ) {
+      list( $name, $value, $max_params, $min_params, $opcode ) = $template;
+      $func = new func_t();
+      $func->type = func_t::type_format;
+      $func->value = $value;
+      $func->min_params = $min_params;
+      $func->max_params = $max_params;
+      $func->detail = array(
+         'opcode' => $opcode );
+      $front->scope->names[ $name ] = $func;
+   }
+}

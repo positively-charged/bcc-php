@@ -36,6 +36,7 @@ class front_t {
    public $dec_for;
    public $func;
    public $case_stmt;
+   public $str_table;
 }
 
 function f_create_tree( $options ) {
@@ -59,6 +60,7 @@ function f_create_tree( $options ) {
    $front->importing = false;
    $front->func = null;
    $front->case_stmt = null;
+   $front->str_table = array();
    // Top scope.
    f_new_scope( $front );
    f_load_ded_format_funcs( $front );
@@ -67,6 +69,11 @@ function f_create_tree( $options ) {
       return false;
    }
    f_read_tk( $front );
+
+  // $expr = f_read_expr( $front );
+//print_r( $front->str_table );
+   //print_r( $expr );
+   //exit( 0 );
 
    $list = array();
    $type = new type_t( 'int' );
@@ -268,7 +275,7 @@ function f_read_dirc( $front, $pos ) {
       f_read_tk( $front );
       $name = f_read_unique_name( $front );
       $expr = f_read_expr( $front );
-      if ( $front->importing || $name[ 0 ] == 'l' ) {
+      if ( ! $front->importing || $name[ 0 ] == 'l' ) {
          $constant = new constant_t();
          $constant->value = $expr->value;
          $constant->pos = $pos;

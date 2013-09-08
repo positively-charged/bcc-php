@@ -76,16 +76,16 @@ class scope_t {
 }
 
 class node_t {
-   const constant = 0;
-   const literal = 1;
-   const unary = 2;
-   const binary = 3;
-   const call = 4;
-   const subscript = 5;
-   const expr = 6;
+   const type_constant = 0;
+   const type_literal = 1;
+   const type_unary = 2;
+   const type_binary = 3;
+   const type_call = 4;
+   const type_subscript = 5;
+   const type_expr = 6;
    const type_var = 7;
-   const script = 8;
-   const script_jump = 9;
+   const type_script = 8;
+   const type_script_jump = 9;
    const type_func = 10;
    const type_if = 11;
    const type_jump = 12;
@@ -104,7 +104,7 @@ class constant_t {
    public $pos;
    public function __construct() {
       $this->node = new node_t();
-      $this->node->type = node_t::constant;
+      $this->node->type = node_t::type_constant;
       $this->value = 0;
       $this->pos = null;
    }
@@ -115,7 +115,7 @@ class literal_t {
    public $value;
    public function __construct() {
       $this->node = new node_t();
-      $this->node->type = node_t::literal;
+      $this->node->type = node_t::type_literal;
    }
 }
 
@@ -133,7 +133,7 @@ class unary_t {
    public $operand;
    public function __construct() {
       $this->node = new node_t();
-      $this->node->type = node_t::unary;
+      $this->node->type = node_t::type_unary;
    }
 }
 
@@ -173,7 +173,7 @@ class binary_t {
    public $rside;
    public function __construct() {
       $this->node = new node_t();
-      $this->node->type = node_t::binary;
+      $this->node->type = node_t::type_binary;
    }
 }
 
@@ -183,7 +183,7 @@ class call_t {
    public $args;
    public function __construct() {
       $this->node = new node_t();
-      $this->node->type = node_t::call;
+      $this->node->type = node_t::type_call;
       $this->func = null;
       $this->args = array();
    }
@@ -195,7 +195,7 @@ class subscript_t {
    public $index;
    public function __construct() {
       $this->node = new node_t();
-      $this->node->type = node_t::subscript;
+      $this->node->type = node_t::type_subscript;
       $this->operand = null;
       $this->index = null;
    }
@@ -209,7 +209,7 @@ class expr_t {
    public $value;
    public function __construct() {
       $this->node = new node_t();
-      $this->node->type = node_t::expr;
+      $this->node->type = node_t::type_expr;
    }
 }
 
@@ -259,7 +259,7 @@ class script_t {
 
    public function __construct() {
       $this->node = new node_t();
-      $this->node->type = node_t::script;
+      $this->node->type = node_t::type_script;
       $this->pos = null;
       $this->number = 0;
       $this->num_params = 0;
@@ -276,7 +276,6 @@ class block_t {
    const flow_dead = 1;
    const flow_jump = 2;
    public $in_script;
-   public $in_func;
    public $in_loop;
    public $in_switch;
    public $is_break;
@@ -287,7 +286,6 @@ class block_t {
    public $prev;
    public function __construct() {
       $this->in_script = false;
-      $this->in_func = false;
       $this->in_loop = false;
       $this->in_switch = false;
       $this->is_break = false;
@@ -321,7 +319,7 @@ class script_jump_t {
    public $type;
    public function __construct() {
       $this->node = new node_t();
-      $this->node->type = node_t::script_jump;
+      $this->node->type = node_t::type_script_jump;
       $this->type = self::terminate;
    }
 }

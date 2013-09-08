@@ -167,6 +167,8 @@ function f_read_dec( $front, $area ) {
          $front->block = null;
          $front->func = null;
          $func->detail = array(
+            'def' => true,
+            'def_params' => true,
             'body' => $block,
             'index' => 0,
             'size' => 0
@@ -214,18 +216,27 @@ function f_read_unique_name( $front ) {
       f_diag( $front, k_diag_err | k_diag_file | k_diag_line | k_diag_column,
          $front->tk_pos, 'name \'%s\' already used', $name );
       $entity = $front->scope->names[ $name ];
+      $pos = null;
       switch ( $entity->node->type ) {
       case node_t::type_param:
       case node_t::type_var:
+      case node_t::type_constant:
+         $pos = $entity->pos;
+         break;
       case node_t::type_func:
-         f_diag( $front, k_diag_file | k_diag_line | k_diag_column,
-            $entity->pos, 'name previously used here' );
-         f_bail( $front );
+         if ( $entity->type != func_t::type_ded &&
+            $entity->type != func_t::type_format ) {
+            $pos = $entity->pos;
+         }
          break;
       default:
-         f_bail( $front );
          break;
       }
+      if ( $pos ) {
+         f_diag( $front, k_diag_file | k_diag_line | k_diag_column, $pos,
+            'name previously used here' );
+      }
+      f_bail( $front );
    }
    else {
       f_read_tk( $front );
@@ -650,6 +661,7 @@ function f_read_bfunc_list( $front ) {
       $code = f_read_literal( $front );
       f_test_tk( $front, tk_colon );
       f_read_tk( $front );
+      $name_pos = $front->tk_pos;
       $name = f_read_unique_name( $front );
       f_test_tk( $front, tk_paren_l );
       f_read_tk( $front );
@@ -663,9 +675,10 @@ function f_read_bfunc_list( $front ) {
       f_test_tk( $front, tk_paren_r );
       f_read_tk( $front );
       $func = new func_t();
+      $func->pos = $name_pos;
+      $func->value = true;
       $func->min_params = $min_param;
       $func->max_params = $max_param;
-      $func->value = true;
       $front->scopes[ 0 ]->names[ $name ] = $func;
       if ( $ext ) {
          $func->type = func_t::type_ext;

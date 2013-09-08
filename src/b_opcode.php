@@ -327,7 +327,7 @@ define( 'pc_rs_map_array', 323 );
 define( 'pc_rs_world_array', 324 );
 define( 'pc_rs_global_array', 325 );
 define( 'pc_get_player_info', 326 );
-define( 'pc_change_level', 2327 );
+define( 'pc_change_level', 327 );
 define( 'pc_sector_damage', 328 );
 define( 'pc_replace_textures', 329 );
 define( 'pc_negate_binary', 330 );
